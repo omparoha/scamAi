@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: scamshield-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - scamshield-net
+
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: scamshield-ml-service
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - scamshield-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: scamshield-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/scamshield
+      - ML_SERVICE_URL=http://ml-service:8000
+      - JWT_SECRET=scamshield_jwt_super_secret_key_2026
+      - JWT_REFRESH_SECRET=scamshield_refresh_secret_2026
+      - CLIENT_ORIGIN=http://localhost:80
+    depends_on:
+      - mongodb
+      - ml-service
+    networks:
+      - scamshield-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: scamshield-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - scamshield-net
+
+networks:
+  scamshield-net:
+    driver: bridge
+
+volumes:
+  mongodb_data:
